@@ -70,25 +70,31 @@ if __name__ == '__main__':
 
     splashPix = QtGui.QPixmap('res/logo2.png')
 
-    from controls import SplashScreen as ss
+    from controls.SplashScreen import *
 
-    splash = ss.SplashScreen(splashPix)
-    splash.setTitle('Kanbaru')
+    splash = SplashScreen(splashPix)
+    splash.setTitle('GraphNode')
     splash.show()
-    splash.setMessage("v0.0.1")
+    splash.setMessage("v0.1")
     app.processEvents()
 
     import time
-    time.sleep(2)
-
-    splash.setMessage("Load Editor...")
     time.sleep(0.3)
 
-    splash.setMessage("Load TimeLine...")
-    time.sleep(0.4)
+    # splash.setMessage("Load Editor...")
+    # time.sleep(0.3)
+    #
+    # splash.setMessage("Load TimeLine...")
+    # time.sleep(0.4)
 
-    widget = MyWidget()
-    widget.show()
+    # widget = MyWidget()
+    # widget.show()
+
+    from controls.GraphicsView.TestGraphView import *
+    g = TestGraphNodeViewWidget()
+    g.resize(600, 300)
+    g.show()
+    g.raise_()
 
     splash.close()
 

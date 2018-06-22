@@ -6,7 +6,7 @@ from PyQt5 import uic
 class SplashScreen(QtWidgets.QWidget):
     def __init__(self, pixmap):
         super(SplashScreen, self).__init__()
-        uic.loadUi('../res/splash.ui', self)
+        uic.loadUi('res/splash.ui', self)
         self.resize(600, 200)
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
         self.title.setStyleSheet("QLabel { background-color: rgba((0, 0, 0, 0%)); color:black; margin: 5px 0px 0px 10px; }")
