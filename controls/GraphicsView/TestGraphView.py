@@ -62,7 +62,7 @@ if __name__ == '__main__':
     # 	)
 
     g = TestGraphNodeViewWidget()
-    g.resize(600, 300)
+    g.resize(600, 600)
     g.show()
     g.raise_()
     # Graph.setZoom( 10 )

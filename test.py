@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
     from controls.GraphicsView.TestGraphView import *
     g = TestGraphNodeViewWidget()
-    g.resize(600, 300)
+    g.resize(800, 600)
     g.show()
     g.raise_()
 
