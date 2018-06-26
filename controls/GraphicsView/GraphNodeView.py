@@ -12,7 +12,7 @@ from controls.GraphicsView.GraphicsViewHelper import *
 from controls.GraphicsView.GraphNodeConnectionItem import *
 from controls.GraphicsView.CurveView import *
 
-_PIXEL_PER_UNIT = 100.0  # basic scale
+
 
 ##----------------------------------------------------------------##
 class GraphNodeViewRoot(QtWidgets.QGraphicsItemGroup):
@@ -21,17 +21,6 @@ class GraphNodeViewRoot(QtWidgets.QGraphicsItemGroup):
 
 ##----------------------------------------------------------------##
 class GraphNodeViewScene(GLGraphicsScene):
-    zoomRate = 1.1
-    zoomX = 2
-    zoomY = 1
-
-    cursorX = 0
-    cursorY = 0
-
-    offsetX = 0
-
-    scrollX = 0
-    scrollY = 0
 
     def __init__(self, parent):
         super(GraphNodeViewScene, self).__init__(parent=parent)
@@ -44,9 +33,9 @@ class GraphNodeViewScene(GLGraphicsScene):
         self.dummyPort = dummyPort
         self.addItem(dummyPort)
 
-        # self.gridBackground = GridBackground()
-        self.axisGridBackground = AxisGridBackground()
-        self.addItem(self.axisGridBackground)
+        self.gridBackground = GridBackground()
+        # self.axisGridBackground = AxisGridBackground()
+        self.addItem(self.gridBackground)
 
         self.connecting = None
         self.sceneRectChanged.connect(self.onRectChanged)
@@ -74,69 +63,48 @@ class GraphNodeViewScene(GLGraphicsScene):
         self.connecting = conn
         return True
 
-    def setZoomX(self, zoom):
-        self.zoomX = zoom
-        self.onZoomChanged()
+    def contextMenuEvent(self, qContextMenuEvent):
+        item = self.itemAt(qContextMenuEvent.scenePos().x(), qContextMenuEvent.scenePos().y(), self.transform)
 
-    def setZoomY(self, zoom):
-        self.zoomY = zoom
-        self.onZoomChanged()
+        print(item)
 
-    def onZoomChanged(self):
-        self.axisGridBackground.setZoom(self.zoomX, self.zoomY)
-        # self.updateTransfrom()
-        # self.cursorItem.setX( self.valueToX( self.cursorX ) )
-        # self.axisGridBackground.setCursorPosX(self.valueToX(self.cursorX))
+        if not item:
+            self.cmenu = QtWidgets.QMenu()
+            newItemAct = self.cmenu.addAction('New Node')
+            newItemAct.triggered.connect(lambda: self.createNodeItem(qContextMenuEvent.scenePos()))
+            newGpAct = self.cmenu.addAction('New Group')
+            newGpAct.triggered.connect(lambda: self.createNodeGroup(qContextMenuEvent.scenePos()))
 
-    def xToValue(self, x):
-        return x / (_PIXEL_PER_UNIT * self.zoomX)
+        elif isinstance(item, GraphNodeItem):
+            self.cmenu = QtWidgets.QMenu()
+            inAct = self.cmenu.addAction('Add inPort')
+            inAct.triggered.connect(lambda: self.createNodeInPort(item))
+            outAct = self.cmenu.addAction('Add outPort')
+            outAct.triggered.connect(lambda: self.createNodeOutPort(item))
+            delAct = self.cmenu.addAction('Delete this item')
+            delAct.triggered.connect(lambda: item.delete())
 
-    def valueToX(self, v):
-        return v * self.zoomX * _PIXEL_PER_UNIT
+        elif isinstance(item, GraphNodeHeaderItem):
+            self.cmenu = QtWidgets.QMenu()
+            delAct = self.cmenu.addAction('Delete this item')
+            delAct.triggered.connect(lambda: item.parentItem().delete())
 
-    def yToValue(self, y):
-        return y / (_PIXEL_PER_UNIT * self.zoomY)
+        elif isinstance(item, GraphNodePortItem):
+            self.cmenu = QtWidgets.QMenu()
+            delAct = self.cmenu.addAction('Delete this port')
+            delAct.triggered.connect(lambda: item.parentItem().removePort(item))
+            print("!!! ", item.parentItem())
 
-    def valueToY(self, v):
-        return v * self.zoomY * _PIXEL_PER_UNIT
+        elif isinstance(item, GraphNodeGroupItem):
+            self.cmenu = QtWidgets.QMenu()
+            editAct = self.cmenu.addAction('Edit Group Name')
+            editAct.triggered.connect(lambda: self.showEditGroupNameDialog(item))
+            delAct = self.cmenu.addAction('Delete this group')
+            delAct.triggered.connect(lambda: self.removeItem(item))
 
-    def valueToPos(self, x, y):
-        return (self.valueToX(x), self.valueToY(y))
 
-    def posToValue(self, xv, yv):
-        return (self.xToValue(xv), self.yToValue(yv))
-
-    def updateTransfrom(self):
-        if self.updating: return
-        self.updating = True
-        # trans = QTransform()
-        # trans.translate(self.valueToX(-self.scrollX) + self.offsetX, self.valueToY(-self.scrollY))
-        # self.setTransform(trans)
-        self.update()
-        self.updating = False
-
-    def wheelEvent(self, event):
-        steps = event.delta() / 120.0
-        dx = 0
-        dy = 0
-        if steps > 0:
-            self.setZoomX(self.zoomX * self.zoomRate)
-            self.setZoomY(self.zoomY * self.zoomRate)
-        else:
-            self.setZoomX(self.zoomX / self.zoomRate)
-            self.setZoomY(self.zoomY / self.zoomRate)
-        # if event.orientation() == Qt.Horizontal:
-        #     dy = steps
-        #     if dy > 0:
-        #         self.setZoomY(self.zoomY * self.zoomRate)
-        #     else:
-        #         self.setZoomY(self.zoomY / self.zoomRate)
-        # else:
-        #     dy = steps
-        #     if dy > 0:
-        #         self.setZoomX(self.zoomX * self.zoomRate)
-        #     else:
-        #         self.setZoomX(self.zoomX / self.zoomRate)
+        if self.cmenu:
+            selectedAct = self.cmenu.exec_(qContextMenuEvent.screenPos())
 
     def mousePressEvent(self, event):
         item = self.itemAt(event.scenePos().x(), event.scenePos().y(), self.transform)
@@ -168,6 +136,38 @@ class GraphNodeViewScene(GLGraphicsScene):
                 self.connecting.delete()
             self.connecting = None
         super(GraphNodeViewScene, self).mouseReleaseEvent(event)
+
+    def showEditGroupNameDialog(self, item):
+        str, okPressed = QtWidgets.QInputDialog.getText(self.cmenu, "Edit", "New Group Name:",
+                                                        QtWidgets.QLineEdit.Normal, item.getTitle())
+        if okPressed and str.strip():
+            item.setTitle(str)
+
+    def createNodeItem(self, pos):
+        node = GraphNodeItem()
+        node.setPos(pos)
+        self.addItem(node)
+
+    def createNodeInPort(self, node):
+        str, okPressed = QtWidgets.QInputDialog.getText(self.cmenu, "Add", "InPort Name:",
+                                                        QtWidgets.QLineEdit.Normal, 'port')
+        if okPressed and str.strip():
+            if node.getInPort(str) == None:
+                node.addInPort(str, GraphNodePortItem())
+                node.updateShape()
+
+    def createNodeOutPort(self, node):
+        str, okPressed = QtWidgets.QInputDialog.getText(self.cmenu, "Add", "OutPort Name:",
+                                                        QtWidgets.QLineEdit.Normal, 'port')
+        if okPressed and str.strip():
+            if node.getOutPort(str) == None:
+                node.addOutPort(str, GraphNodePortItem())
+                node.updateShape()
+
+    def createNodeGroup(self, pos):
+        group = GraphNodeGroupItem()
+        group.setPos(pos)
+        self.addItem(group)
 
 
 ##----------------------------------------------------------------##
@@ -210,15 +210,131 @@ class GraphNodeView(GLGraphicsView):
 
     def mouseReleaseEvent(self, ev):
         if self._delegate:
-            result = self._delegate.mouseReleaseEvent( self, ev )
+            result = self._delegate.mouseReleaseEvent(self, ev)
         # 		if result: return
         return super(GraphNodeView, self).mouseReleaseEvent(ev)
 
     def mouseMoveEvent(self, ev):
         if self._delegate:
-            result = self._delegate.mouseMoveEvent( self, ev )
+            result = self._delegate.mouseMoveEvent(self, ev)
         # 		if result: return
         return super(GraphNodeView, self).mouseMoveEvent(ev)
+
+_PIXEL_PER_UNIT = 100.0  # basic scale
+
+class GraphNodeView2(GLGraphicsView):
+    zoomRate = 1.1
+    zoomX = 2
+    zoomY = 1
+
+    cursorX = 0
+    cursorY = 0
+
+    offsetX = 0
+
+    scrollX = 0
+    scrollY = 0
+
+    def __init__(self, *args, **kwargs):
+        super(GraphNodeView2, self).__init__(*args, **kwargs)
+        self._delegate = GraphicsItemMoveTool()
+        self.panning = False
+        self.updating = False
+
+    def wheelEvent(self, ev):
+        # QtCore.QPoint().y()
+        # print(ev.angleDelta())
+        steps = ev.angleDelta().y() / 120.0
+        if steps > 0:
+            self.setZoomX(self.zoomX * self.zoomRate)
+            self.setZoomY(self.zoomY * self.zoomRate)
+        else:
+            self.setZoomX(self.zoomX / self.zoomRate)
+            self.setZoomY(self.zoomY / self.zoomRate)
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.MidButton:
+            offX0, offY0 = self.valueToPos(self.scrollX, self.scrollY)
+            self.panning = (ev.pos(), (offX0, offY0))
+
+        if self._delegate:
+            result = self._delegate.mousePressEvent(self, ev)
+        # 		if result: return
+        return super(GraphNodeView2, self).mousePressEvent(ev)
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == Qt.MidButton:
+            if self.panning:
+                self.panning = False
+
+        if self._delegate:
+            result = self._delegate.mouseReleaseEvent(self, ev)
+        # 		if result: return
+        return super(GraphNodeView2, self).mouseReleaseEvent(ev)
+
+    def mouseMoveEvent(self, ev):
+        if self.panning:
+            p1 = ev.pos()
+            p0, off0 = self.panning
+            # print("%s --> %s" % (p0, p1))
+            dx = p0.x() - p1.x()
+            dy = p0.y() - p1.y()
+            offX0, offY0 = off0
+            offX1 = offX0 + dx
+            offY1 = offY0 + dy
+            self.setScroll(self.xToValue(offX1), self.yToValue(offY1))
+
+        if self._delegate:
+            result = self._delegate.mouseMoveEvent(self, ev)
+        # 		if result: return
+        return super(GraphNodeView2, self).mouseMoveEvent(ev)
+
+    def setScroll(self, x, y):
+        self.scrollX = x
+        self.scrollY = y
+        self.updateTransfrom()
+
+    def setZoomX(self, zoom):
+        self.zoomX = zoom
+        self.onZoomChanged()
+
+    def setZoomY(self, zoom):
+        self.zoomY = zoom
+        self.onZoomChanged()
+
+    def onZoomChanged(self):
+        self.updateTransfrom()
+        # self.cursorItem.setX( self.valueToX( self.cursorX ) )
+        # self.axisGridBackground.setCursorPosX(self.valueToX(self.cursorX))
+
+    def xToValue(self, x):
+        return x / (_PIXEL_PER_UNIT * self.zoomX)
+
+    def valueToX(self, v):
+        return v * self.zoomX * _PIXEL_PER_UNIT
+
+    def yToValue(self, y):
+        return y / (_PIXEL_PER_UNIT * self.zoomY)
+
+    def valueToY(self, v):
+        return v * self.zoomY * _PIXEL_PER_UNIT
+
+    def valueToPos(self, x, y):
+        return (self.valueToX(x), self.valueToY(y))
+
+    def posToValue(self, xv, yv):
+        return (self.xToValue(xv), self.yToValue(yv))
+
+    def updateTransfrom(self):
+        if self.updating: return
+        self.updating = True
+        trans = QTransform()
+        trans.translate(self.valueToX(-self.scrollX) + self.offsetX, self.valueToY(-self.scrollY))
+        # print('scrollX: %f scrollY: %f', self.scrollX, self.scrollY)
+        self.setTransform(trans)
+        self.update()
+        self.updating = False
+
 
 
 ##----------------------------------------------------------------##
@@ -229,8 +345,10 @@ class GraphNodeViewWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         self.scene = GraphNodeViewScene(parent=self)
         self.scene.setBackgroundBrush(Qt.black)
-        self.view = GraphNodeView(self.scene, parent=self)
-        self.view.setSceneRect(QRectF(0, 0, 10000, 10000))
+        self.view = GraphNodeView2(self.scene, parent=self)
+        self.view.setScene(self.scene)
+        self.view.setSceneRect(QRectF(-1000, -1000, 10000, 10000))
+        self.view.centerOn(0, 0)
         layout.addWidget(self.view)
         layout.setSpacing(0)
         layout.setContentsMargins(QtCore.QMargins())
