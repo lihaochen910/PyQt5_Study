@@ -72,14 +72,23 @@ class GraphNodePortItem(QtWidgets.QGraphicsRectItem, GraphNodeItemBase):
         self.setAcceptHoverEvents(True)
 
     def getText(self):
-        return '>'
+        return self.key
+        # return '>'
 
     def clearConnections(self):
+        sp = []
+        dp = []
         for conn in self.connections:
             if conn.srcPort == self:
-                conn.setSrcPort(None)
+                sp.append(conn)
+                # conn.setSrcPort(None)
             if conn.dstPort == self:
-                conn.setDstPort(None)
+                dp.append(conn)
+                # conn.setDstPort(None)
+        for conn in sp:
+            conn.setSrcPort(None)
+        for conn in dp:
+            conn.setDstPort(None)
 
     def updateConnections(self):
         for conn in self.connections:
@@ -199,6 +208,9 @@ class GraphNodeItem(QtWidgets.QGraphicsRectItem):
         self.textItem.setTextInteractionFlags(Qt.TextEditorInteraction)
         self.textItem.setTextWidth(280)
 
+    def __del__(self):
+        print('GraphNodeItem deleted')
+
     def createHeader(self):
         return GraphNodeHeaderItem()
 
@@ -224,6 +236,21 @@ class GraphNodeItem(QtWidgets.QGraphicsRectItem):
         port.key = key
         self.outPortDict[key] = port
         self.outPorts.append(port)
+
+    def removePort(self, port):
+        if port:
+            if port in self.inPorts:
+                self.inPorts.remove(port)
+                del self.inPortDict[port.key]
+                port.clearConnections()
+                self.scene().removeItem(port)
+                self.updateShape()
+            if port in self.outPorts:
+                self.outPorts.remove(port)
+                del self.outPortDict[port.key]
+                port.clearConnections()
+                self.scene().removeItem(port)
+                self.updateShape()
 
     def buildPorts(self):
         # input
