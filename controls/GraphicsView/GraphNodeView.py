@@ -43,6 +43,8 @@ class GraphNodeViewScene(GLGraphicsScene):
 
         self.updating = False
 
+        # QtWidgets.QGraphicsItem().pos()
+
     def clear(self):
         super(GraphNodeViewScene, self).clear()
 
@@ -74,6 +76,10 @@ class GraphNodeViewScene(GLGraphicsScene):
             newItemAct.triggered.connect(lambda: self.createNodeItem(qContextMenuEvent.scenePos()))
             newGpAct = self.cmenu.addAction('New Group')
             newGpAct.triggered.connect(lambda: self.createNodeGroup(qContextMenuEvent.scenePos()))
+            expAct = self.cmenu.addAction('Export Scene')
+            expAct.triggered.connect(lambda: self.saveScene())
+            impAct = self.cmenu.addAction('Import Scene')
+            impAct.triggered.connect(lambda: self.loadScene())
 
         elif isinstance(item, GraphNodeItem):
             self.cmenu = QtWidgets.QMenu()
@@ -86,6 +92,8 @@ class GraphNodeViewScene(GLGraphicsScene):
 
         elif isinstance(item, GraphNodeHeaderItem):
             self.cmenu = QtWidgets.QMenu()
+            editAct = self.cmenu.addAction('Edit Node Title')
+            editAct.triggered.connect(lambda: self.showEditNodeTitleDialog(item))
             delAct = self.cmenu.addAction('Delete this item')
             delAct.triggered.connect(lambda: item.parentItem().delete())
 
@@ -142,6 +150,20 @@ class GraphNodeViewScene(GLGraphicsScene):
                                                         QtWidgets.QLineEdit.Normal, item.getTitle())
         if okPressed and str.strip():
             item.setTitle(str)
+
+    def showEditNodeTitleDialog(self, item):
+        str, okPressed = QtWidgets.QInputDialog.getText(self.cmenu, "Edit", "Node Name:",
+                                                        QtWidgets.QLineEdit.Normal, item.getText())
+        if okPressed and str.strip():
+            item.setText(str)
+
+    def saveScene(self):
+        from ioo import GNSFile
+        GNSFile.GNS.save(self)
+
+    def loadScene(self):
+        from ioo import GNSFile
+        GNSFile.GNS.load()
 
     def createNodeItem(self, pos):
         node = GraphNodeItem()
